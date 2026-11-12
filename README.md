@@ -1,5 +1,12 @@
 # NFS — Notion File Sharing
 
+[![CI](https://github.com/oriolrius/notion-file-sharing/actions/workflows/ci.yml/badge.svg)](https://github.com/oriolrius/notion-file-sharing/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/oriolrius/notion-file-sharing)](https://github.com/oriolrius/notion-file-sharing/releases/latest)
+[![Container image](https://img.shields.io/badge/ghcr.io-notion--file--sharing-blue?logo=docker)](https://github.com/users/oriolrius/packages/container/package/notion-file-sharing)
+
+Container image: [`ghcr.io/oriolrius/notion-file-sharing`](https://github.com/users/oriolrius/packages/container/package/notion-file-sharing)
+(`docker pull ghcr.io/oriolrius/notion-file-sharing:2`).
+
 Share files and videos stored in Notion with **secure, expiring links**, without making the Notion
 page public.
 
