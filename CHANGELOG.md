@@ -1,3 +1,9 @@
+## v2.1.0 (2026-11-12)
+
+### Feat
+
+- **release**: CLI binaries for x86_64 and i686 with glibc
+
 ## v2.0.1 (2026-11-12)
 
 ### Fix
