@@ -25,7 +25,9 @@ LABEL org.opencontainers.image.source="https://github.com/oriolrius/notion-file-
       org.opencontainers.image.licenses="MIT"
 COPY --from=build /src/target/release/nfs /nfs
 ENV NFS_CONFIG=/etc/nfs/config.toml
-EXPOSE 8080 9100
+# 8080 = links + generator (behind the reverse proxy). Only 9100 (/metrics) is EXPOSEd so that
+# Docker-discovery scrapers (Alloy) scrape the metrics port, not the public one.
+EXPOSE 9100
 USER nonroot:nonroot
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 CMD ["/nfs", "health"]
 ENTRYPOINT ["/nfs"]
