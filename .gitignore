@@ -1,0 +1,8 @@
+/target
+/dist
+# never commit secrets or local configs
+*.toml.local
+config.toml
+key.bin
+*.key
+.env

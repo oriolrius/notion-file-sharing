@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{% block title %}NFS{% endblock %} · Notion File Sharing</title>
+<link rel="icon" href="/_/assets/favicon.svg?v={{ v }}" type="image/svg+xml">
+<link rel="preload" href="/_/assets/ubuntu-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/_/assets/app.css?v={{ v }}">
+</head>
+<body>
+<header>
+  <img class="logo" src="/_/assets/favicon.svg?v={{ v }}" alt="" width="30" height="30">
+  <h1>Notion File Sharing</h1>
+  {% block user %}{% endblock %}
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<footer>{% block footer %}n.joor.net{% endblock %}</footer>
+<script src="/_/assets/app.js?v={{ v }}" defer></script>
+</body>
+</html>

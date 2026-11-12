@@ -1,0 +1,26 @@
+# NFS configuration (TOML). Path: --config, $NFS_CONFIG, or ~/.config/nfs/config.toml.
+# Every secret accepts an inline value (`x = "…"`) or a file (`x_file = "/path"`), never both.
+
+listen = "0.0.0.0:8080"          # links + web generator (published by the reverse proxy)
+admin_listen = "0.0.0.0:9100"    # /metrics + /healthz (internal only)
+base_url = "https://n.example.com"
+customer_id = "1"
+
+key_file = "/run/secrets/nfs/key.bin"     # 32 bytes, `nfs keygen key.bin`. Never rotate: it breaks every link.
+seed_file = "/run/secrets/nfs/seed"       # signature seed of v1 links. Never rotate either.
+
+[notion]
+api_key_file = "/run/secrets/nfs/notion_api_key"
+# api_url = "https://api.notion.com/v1/blocks/"
+# version = "2026-03-11"
+
+[kutt]
+api_url = "https://u.example.com/api/v2/links"
+api_key_file = "/run/secrets/nfs/kutt_api_key"
+
+# Web generator login. Without this section the generator (/_/) is disabled.
+[oidc]
+issuer = "https://iam.example.com/realms/example"
+client_id = "nfs"
+client_secret_file = "/run/secrets/nfs/oidc_client_secret"
+allowed_users = []   # preferred_username values; empty = every user of the realm
