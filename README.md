@@ -44,6 +44,20 @@ Open `https://<server>/_/`, log in, paste the Notion link to the block (block me
 
 ### CLI
 
+Download the binary for your system from the [latest release](https://github.com/oriolrius/notion-file-sharing/releases/latest):
+
+| File | Runs on |
+|---|---|
+| `nfs-<v>-x86_64-linux-musl` | any x86_64 Linux (static, no libc needed) |
+| `nfs-<v>-x86_64-linux-gnu` | x86_64 Linux with glibc ≥ 2.17 (CentOS 7 and newer) |
+| `nfs-<v>-i686-linux-gnu` | 32-bit x86 Linux with glibc ≥ 2.17 |
+
+```bash
+curl -fLO https://github.com/oriolrius/notion-file-sharing/releases/latest/download/SHA256SUMS
+# pick one file, check it, install it
+sha256sum --ignore-missing -c SHA256SUMS && install -m 755 nfs-*-x86_64-linux-gnu ~/.local/bin/nfs
+```
+
 ```bash
 nfs create "https://www.notion.so/…#<block_id>" -X +7d            # secure + short URL
 nfs create "https://www.notion.so/…#<block_id>" -X +30d -C my-alias -P -   # password from stdin
