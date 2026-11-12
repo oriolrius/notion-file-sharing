@@ -21,9 +21,9 @@ pub fn parse_expire(spec: &str, now: i64) -> Result<i64, String> {
         let (num, unit) = rel.split_at(rel.len().saturating_sub(1));
         let n: i64 = num
             .parse()
-            .map_err(|_| format!("invalid duration: {spec}"))?;
+            .map_err(|_| format!("durada no vàlida: {spec}"))?;
         if n <= 0 {
-            return Err(format!("duration must be positive: {spec}"));
+            return Err(format!("la durada ha de ser positiva: {spec}"));
         }
         let mult = match unit {
             "m" => MINUTE,
@@ -31,18 +31,24 @@ pub fn parse_expire(spec: &str, now: i64) -> Result<i64, String> {
             "d" => DAY,
             "w" => 7 * DAY,
             "y" => YEAR,
-            _ => return Err(format!("unknown unit in {spec} (use m, h, d, w or y)")),
+            _ => {
+                return Err(format!(
+                    "unitat desconeguda a {spec} (fes servir m, h, d, w o y)"
+                ));
+            }
         };
         return n
             .checked_mul(mult)
             .and_then(|d| d.checked_add(now))
-            .ok_or_else(|| "duration too long".into());
+            .ok_or_else(|| "durada massa llarga".into());
     }
     let ts = OffsetDateTime::parse(spec, &Rfc3339)
-        .map_err(|_| format!("invalid date: {spec} (use +24h, +7d, +1y or 2026-12-31T23:59:59Z)"))?
+        .map_err(|_| {
+            format!("data no vàlida: {spec} (fes servir +24h, +7d, +1y o 2026-12-31T23:59:59Z)")
+        })?
         .unix_timestamp();
     if ts <= now {
-        return Err("the expiry date is in the past".into());
+        return Err("la data de caducitat ja ha passat".into());
     }
     Ok(ts)
 }
@@ -60,21 +66,22 @@ pub fn kutt_expire_in(expire: i64, now: i64) -> Option<String> {
 /// Extract the block id from a Notion "copy link to block" URL (`…#<block_id>`).
 /// Accepts 32 hex chars or a dashed UUID; returns it as given (lowercase).
 pub fn block_id_from_url(input: &str) -> Result<String, String> {
-    let url = url::Url::parse(input.trim()).map_err(|_| "not a valid URL".to_string())?;
+    let url = url::Url::parse(input.trim()).map_err(|_| "no és una URL vàlida".to_string())?;
     if url.scheme() != "https" {
-        return Err("the URL must start with https://".into());
+        return Err("la URL ha de començar per https://".into());
     }
     let host = url.host_str().unwrap_or_default();
     let notion = ["notion.so", "notion.com", "notion.site"]
         .iter()
         .any(|d| host == *d || host.ends_with(&format!(".{d}")));
     if !notion {
-        return Err("it is not a Notion URL (notion.so / notion.com)".into());
+        return Err("no és una URL de Notion (notion.so / notion.com)".into());
     }
     let fragment = url.fragment().unwrap_or_default();
     if fragment.is_empty() {
         return Err(
-            "the URL has no block id (#…): copy the link to the block, not to the page".into(),
+            "la URL no té l'identificador del bloc (#…): copia l'enllaç al bloc, no a la pàgina"
+                .into(),
         );
     }
     let id = fragment.to_ascii_lowercase();
@@ -83,7 +90,9 @@ pub fn block_id_from_url(input: &str) -> Result<String, String> {
         && hex.chars().all(|c| c.is_ascii_hexdigit())
         && (id.len() == 32 || id.len() == 36);
     if !ok {
-        return Err(format!("“#{fragment}” is not a Notion block id"));
+        return Err(format!(
+            "«#{fragment}» no és un identificador de bloc de Notion"
+        ));
     }
     Ok(id)
 }
@@ -127,7 +136,7 @@ pub fn validate_slug(slug: &str) -> Result<(), String> {
     if ok {
         Ok(())
     } else {
-        Err("the alias must have 3–64 characters: letters, digits, - or _".into())
+        Err("l'àlies ha de tenir 3–64 caràcters: lletres, xifres, - o _".into())
     }
 }
 
