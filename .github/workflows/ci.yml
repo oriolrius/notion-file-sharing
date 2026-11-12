@@ -97,6 +97,8 @@ jobs:
           target: binary
           platforms: linux/amd64
           outputs: type=local,dest=dist
+          provenance: false
+          sbom: false
           cache-from: type=gha
       - name: Package
         run: |
