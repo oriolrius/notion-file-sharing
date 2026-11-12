@@ -1,3 +1,9 @@
+## v2.0.1 (2026-11-12)
+
+### Fix
+
+- **web**: show validation errors in Catalan
+
 ## v2.0.0 (2026-11-12)
 
 ### BREAKING CHANGE
