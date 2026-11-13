@@ -1,0 +1,42 @@
+@startuml 05-user-operations
+!include theme-oriolrius.puml
+' Screenshots (docs/images/*.png): the real generator template and the real nfs binary, with demo data
+' (random key, local fake Notion and Kutt): the URLs in them open nothing.
+title NFS — how people use it: create a link, share it, open it
+
+actor "Author\n(file owner)" as author #FF6600;line:C95000
+rectangle "**Notion**\npage with a video / file block\nblock menu (6 dots) -> //Copy link to block//\n""https://www.notion.so/…#<block id>""" as notion <<external>>
+
+package "Option A — web generator (browser)" as webpkg #F4F4F4;line:D5D6D7 {
+  rectangle "**Keycloak** iam.joor.net\nrealm ""joornet"" · client ""nfs""\nOIDC login + allowlist" as kc <<external>>
+  rectangle "**https://n.joor.net/_/**\n<img:../images/generator.png{scale=0.5}>" as gen <<card>>
+}
+
+package "Option B — nfs CLI (terminal)" as clipkg #F4F4F4;line:D5D6D7 {
+  rectangle "**nfs create**  ·  Linux ""x86_64"" / ""i686"" binary, local config + key\n<img:../images/cli-create.png{scale=0.5}>" as cli <<card>>
+}
+
+rectangle "**nfs server**  n.joor.net\nverifies + decrypts the link\nstreams the file (Range)" as nfs <<core>>
+rectangle "**Kutt**  u.joor.net\nshort URL, same expiry" as kutt <<external>>
+rectangle "**Notion API + file host**\nthe pre-signed S3 URL\nis never shown" as files <<external>>
+
+actor "Viewer\n(no account)" as viewer #FF6600;line:C95000
+
+author -right-> notion : 1. copy link to block
+author -down-> kc : 2a. log in
+kc -right-> gen : session
+author -down-> gen : 3a. paste URL · expiry\nalias · password
+author -down-> cli : 2b. nfs create <url> -X +7d [-C alias] [-P -]
+gen -down-> nfs : POST /_/links\n(checks block, builds URL)
+gen -down-> kutt : 4. short URL
+cli -down-> kutt : 4. short URL
+cli -down-> files : checks block
+gen -up-> author : 5. secure URL + short URL
+cli -up-> author : 5. secure URL + short URL
+
+author .down.> viewer : 6. share https://u.joor.net/<alias> (mail, chat…)
+viewer -up-> kutt : 7. open (no login)
+kutt -right-> nfs : 302 -> secure URL
+nfs -right-> files : 8. resolve + stream
+nfs -down-> viewer : 9. file / video plays\n(password page first, if set)
+@enduml

@@ -19,6 +19,8 @@ page public.
 
 One static Rust binary (`nfs`), one ~10 MB container image.
 
+![How people use NFS: create a link with the web generator (Keycloak login) or the CLI, share the Kutt short URL, open it without an account](docs/images/05-user-operations.svg)
+
 ## How it works
 
 ```
@@ -33,7 +35,16 @@ viewer ──► reverse proxy (TLS) ──► nfs serve
 | v1 (no password) | `/<sha1 signature>/<customer>/<expire_ts>/<base64 nonce‖secretbox(block_id)>` — byte compatible with the original OpenResty/Lua server |
 | v2 (password) | `/v2/<base64url nonce‖secretbox(json)>` — payload has block id, expiry and an argon2id password hash |
 
-Details: [docs/architecture.md](docs/architecture.md).
+![Anatomy of the NFS URLs: short URL, v1 and v2 secure URLs and how the server reads them](docs/images/04-url-anatomy.svg)
+
+### Inside the server
+
+![Internal architecture of nfs serve: public router, core library, admin listener and external services](docs/images/01-server-architecture.svg)
+
+![Sequence of a download: Kutt redirect, link verification, Notion cache, streaming with Range](docs/images/02-download-sequence.svg)
+
+Details: [docs/architecture.md](docs/architecture.md). Diagram sources (PlantUML, oriolrius.me
+theme): [docs/diagrams/](docs/diagrams/).
 
 ## Usage
 
@@ -66,6 +77,8 @@ nfs decode https://u.example.com/abc123 -o ~/Downloads             # download th
 nfs keygen key.bin                                                 # new key (never rotate a key in use)
 ```
 
+![How nfs create builds the secure URL and the short URL](docs/images/03-cli.svg)
+
 `-X/--expire`: `+30m`, `+24h`, `+7d`, `+2w`, `+50y` or `2026-12-31T23:59:59Z` (default `+50y`).
 The short URL gets the same expiry (none for links of 10 years or more).
 
@@ -90,6 +103,7 @@ docker run -d --name nfs -p 8080:8080 \
 cargo test                       # unit + HTTP tests (Notion/S3/Kutt mocked)
 cargo clippy --all-targets -- -D warnings
 cargo run -- --config dev.toml serve
+uv run --no-project python docs/diagrams/render.py   # docs/diagrams/*.puml -> docs/images/*.svg
 ```
 
 Releases: conventional commits, `cz bump`, push the tag. GitHub Actions tests, builds and pushes

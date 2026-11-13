@@ -1,0 +1,63 @@
+@startuml 04-url-anatomy
+!include theme-oriolrius.puml
+title Anatomy of the NFS URLs — how https://n.joor.net/… is read
+
+rectangle "**Short URL** (Kutt)\n\n<size:15>""https://u.joor.net/vaga-s12""</size>\n\nalias (-C) or random · expires with the link\n(no expiry for links of 10 years or more)" as short <<card>>
+
+package "v1 link — no password" as col1 #F4F4F4;line:D5D6D7 {
+rectangle v1 <<card>> [
+**v1 secure URL** — no password · frozen format, byte compatible with the Lua server and mm-a2a
+
+|= <#E8E8F4> base_url |= <#FFF3EB> sig |= <#E8E8F4> cid |= <#E8E8F4> exp |= <#FFF3EB> cipher |
+| ""https://n.joor.net/"" | ""8e51fa67…bd057529a/"" | ""1/"" | ""1795168535/"" | ""w0NKVmrp…Lb9paboBx"" |
+| config ""base_url"" | 40 hex · SHA-1 | customer id | Unix time (UTC) | standard base64 (may hold / + =) |
+| | integrity of the 3 next parts | config ""customer_id"" | 2026-11-20T09:55:35Z | nonce(24) + secretbox(block id) |
+]
+
+
+  rectangle "1. split path\n<sig> / <cid> / <exp> / <cipher…>\n(the cipher keeps its own /)" as a1
+  rectangle "2. verify\nsha1_hex(cid || exp || cipher\n|| base64(key) || seed) == sig\nconstant time · else **404**" as a2 <<accent>>
+  rectangle "3. expiry\nexp > now · else **410**" as a3
+  rectangle "4. decrypt\nbase64 -> nonce(24) || box\nsecretbox_open(box, nonce, key)\n-> Notion block id" as a4 <<accent>>
+  rectangle "5. serve\nNotion API -> file URL\nstream with Range" as a5 <<core>>
+  a1 -down-> a2
+  a2 -down-> a3
+  a3 -down-> a4
+  a4 -down-> a5
+  v1 -down-> a1
+}
+
+package "v2 link — with password" as col2 #F4F4F4;line:D5D6D7 {
+rectangle v2 <<card>> [
+**v2 secure URL** — with password
+
+|= <#E8E8F4> base_url |= <#E8E8F4> version |= <#FFF3EB> token |
+| ""https://n.joor.net/"" | ""v2/"" | ""roWHnroROnYxuqs5…dMROe_1zLLk"" |
+| config ""base_url"" | route ""/v2/{token}"" | base64url, no padding: nonce(24) + secretbox(json, k2) |
+]
+
+
+  rectangle "1. decode\nbase64url -> nonce(24) || box" as b1
+  rectangle "2. decrypt + authenticate\nk2 = HMAC-SHA256(key, 'nfs/v2/token')\nsecretbox_open — MAC fails -> **404**" as b2 <<accent>>
+  rectangle "3. payload (JSON)\n{ b: block id, c: customer id,\n  e: expire ts, p: { s: salt, h: argon2id } }\ne > now · else **410**" as b3
+  rectangle "4. password\nunlock cookie for this path?\nelse form -> argon2id(pw, s) == h\n-> cookie 12 h" as b4 <<accent>>
+  rectangle "5. serve\nsame as v1" as b5 <<core>>
+  b1 -down-> b2
+  b2 -down-> b3
+  b3 -down-> b4
+  b4 -down-> b5
+  v2 -down-> b1
+}
+
+rectangle "key.bin (32 bytes) + seed\nfrom config / Bitwarden\n**never rotate**: they sign and\ndecrypt every link ever made" as keys <<accent>>
+
+short -down-> v1 : HTTP 302
+short -down-> v2 : HTTP 302
+keys .up.> col1 : verify + decrypt
+keys .up.> col2 : derive k2 + decrypt
+
+legend bottom
+  The block id is never visible in the URL: only the server (key + seed) can read it.
+  The secretbox is XSalsa20-Poly1305 (libsodium crypto_secretbox_easy). Nothing in a URL can be changed without the server noticing.
+endlegend
+@enduml

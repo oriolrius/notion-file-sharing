@@ -1,0 +1,68 @@
+@startuml 02-download-sequence
+!include theme-oriolrius.puml
+title NFS server — what happens when a link is opened
+
+actor "Viewer" as viewer #FF6600
+participant "Kutt\nu.joor.net" as kutt <<ext>>
+participant "Reverse proxy\n(TLS)" as proxy <<ext>>
+box "nfs serve  :8080" #F4F4F4
+participant "router" as router
+participant "token.rs" as token
+participant "notion.rs\n(moka cache)" as cache
+participant "serve_block" as stream
+end box
+participant "Notion API" as napi <<ext>>
+participant "File host\n(S3)" as s3 <<ext>>
+
+viewer -> kutt : GET u.joor.net/vaga-s12
+kutt --> viewer : 302 Location: https://n.joor.net/<link>
+viewer -> proxy : GET /<link>   (Range: bytes=…)
+proxy -> router : HTTP, X-Real-IP
+
+alt v1 link  /<sig>/<cid>/<exp>/<cipher>
+  router -> token : V1Link::parse + v1_decode
+  token -> token : sig equals sha1_hex(cid||exp||cipher||b64(key)||seed) ?\n(constant-time compare)
+  token -> token : exp > now ?
+  token -> token : secretbox_open(nonce, box, key) -> block id
+else v2 link  /v2/<token>
+  router -> token : v2_decode  (k2 = HMAC-SHA256(key, "nfs/v2/token"))
+  token -> token : secretbox_open -> {b, c, e, p}
+  opt payload has a password and no unlock cookie
+    router --> viewer : 401 password page
+    viewer -> router : POST /v2/<token>  password
+    router -> token : argon2id(password, salt) == hash ?
+    router --> viewer : 303 + Set-Cookie (private, Path=/v2/<token>, 12 h)
+    viewer -> router : GET /v2/<token> + cookie
+  end
+end
+
+alt signature or MAC wrong
+  router --> viewer : 404 "Enllaç no trobat"
+else expired
+  router --> viewer : 410 "Enllaç caducat"
+end
+
+router -> stream : serve_block(block id, Range)
+stream -> cache : resolve(block id)
+alt cache hit (until expiry − 5 min)
+  cache --> stream : file URL (cached)
+else miss (single-flight: one call for all waiting requests)
+  cache -> napi : GET /v1/blocks/{id}  (Notion-Version 2026-03-11)
+  napi --> cache : {type: video, file: {url, expiry_time}}
+  cache --> stream : file URL (pre-signed, 1 h)
+end
+
+stream -> s3 : GET file URL  + Range / If-Range
+alt 403 (URL expired early)
+  stream -> cache : forget + resolve again
+  stream -> s3 : GET new URL + Range
+end
+s3 --> stream : 206 Partial Content (body stream)
+stream --> proxy : 206 · Content-Range · ETag\nContent-Disposition: attachment
+proxy --> viewer : bytes, no buffering
+
+note over router, stream
+  logs: only the first 8 characters of the link id —
+  never file URLs, tokens or keys
+end note
+@enduml

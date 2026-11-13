@@ -1,0 +1,64 @@
+@startuml 01-server-architecture
+!include theme-oriolrius.puml
+
+title NFS server — internal architecture (nfs serve)
+
+actor "Viewer\n(no login)" as viewer #FF6600;line:C95000
+actor "Author" as author #FF6600;line:C95000
+rectangle "Reverse proxy\nTLS · NPM k5\nproxy_buffering off" as proxy <<external>>
+rectangle "Prometheus / Alloy" as prom <<external>>
+
+package "nfs-server container  ·  one static Rust binary (tokio + axum)" as box #F4F4F4;line:D5D6D7 {
+
+  package ":8080  public router" as pub #FFFFFF;line:D5D6D7 {
+    rectangle "**v1 handler** (fallback)\n/<sig>/<cid>/<exp>/<cipher>" as v1 <<card>>
+    rectangle "**v2 handler**  /v2/{token}\nGET: password form\nPOST: argon2id check\n-> unlock cookie 12 h\n(10 tries / IP / 10 min)" as v2 <<card>>
+    rectangle "**generator**  /_/  ·  POST /_/links\naskama pages · CSRF\nembedded CSS/JS/Ubuntu fonts" as gen <<card>>
+    rectangle "**OIDC**  /_/auth/*\nauth code + PKCE\nsession = private cookie" as auth <<card>>
+    rectangle "security headers\nCSP 'self' · no-referrer\nframe-ancestors 'none'" as hdr <<card>>
+  }
+
+  package "core library (shared with the CLI)" as core #FFFFFF;line:D5D6D7 {
+    rectangle "**token.rs**\nv1 codec (frozen, Lua compatible)\nv2 codec · argon2id\nkey derivation (HMAC-SHA256)" as token <<accent>>
+    rectangle "**links.rs**\nNotion URL -> block id\nexpiry parsing · secure_path()" as links <<card>>
+    rectangle "**notion.rs**\nblock -> file URL\nmoka cache until expiry − 5 min\nsingle-flight on misses" as notion <<card>>
+    rectangle "**kutt.rs**\ncreate · delete · unshorten" as kutt <<card>>
+    rectangle "**serve_block**\nstream body, no spool\nRange / If-Range passthrough\nretry once on S3 403" as stream <<core>>
+  }
+
+  package ":9100  admin (internal)" as adm #FFFFFF;line:D5D6D7 {
+    rectangle "/metrics\n/healthz" as metrics <<card>>
+  }
+
+  rectangle "config.toml\n+ secrets (*_file)\nkey.bin · seed · API keys" as cfg <<accent>>
+}
+
+rectangle "Notion API\napi.notion.com" as napi <<external>>
+rectangle "File host (S3)\npre-signed URL, 1 h" as s3 <<external>>
+rectangle "Kutt\nu.joor.net" as kuttsvc <<external>>
+rectangle "Keycloak\nrealm joornet" as kc <<external>>
+
+viewer --> proxy : HTTPS link
+author --> proxy : HTTPS /_/
+proxy --> v1
+proxy --> v2
+proxy --> gen
+
+v1 --> token : verify sig + exp\ndecrypt block id
+v2 --> token : open token\nverify password
+gen --> auth : no session -> login
+auth --> kc : authorize / token
+gen --> links : build v1 / v2 path
+links --> token
+gen --> kutt : short URL
+kutt --> kuttsvc
+
+v1 --> stream
+v2 --> stream
+stream --> notion : resolve(block)
+notion --> napi : GET /v1/blocks/{id}
+stream --> s3 : GET + Range
+
+prom --> metrics : scrape
+cfg ..> token
+@enduml

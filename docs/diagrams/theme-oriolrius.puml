@@ -1,0 +1,193 @@
+' PlantUML theme "oriolrius.me".
+' Palette and fonts from ~/lab/oriolriusme-slidev-theme/styles/tokens.css (measured from oriolrius.me):
+'   paper #FFFFFF · mist #F4F4F4 · slate #54595F (titles) · body #575757 · hairline #D5D6D7
+'   orange #FF6600 (non-text accent) · orange ink #C95000 (text on white) · tint #FFF3EB
+'   navy #151652 · navy-700 #23246B · navy-300 #8C8FBF · navy-100 #E8E8F4 · green ink #0C8760
+' Font: Ubuntu (sans) and Ubuntu Mono.
+' Usage: !include theme-oriolrius.puml
+
+!$OR_ORANGE = "#FF6600"
+!$OR_ORANGE_INK = "#C95000"
+!$OR_ORANGE_TINT = "#FFF3EB"
+!$OR_SLATE = "#54595F"
+!$OR_BODY = "#575757"
+!$OR_MIST = "#F4F4F4"
+!$OR_LINE = "#D5D6D7"
+!$OR_NAVY = "#151652"
+!$OR_NAVY_700 = "#23246B"
+!$OR_NAVY_300 = "#8C8FBF"
+!$OR_NAVY_100 = "#E8E8F4"
+!$OR_GREEN = "#0C8760"
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Ubuntu
+skinparam defaultFontSize 13
+skinparam defaultFontColor $OR_BODY
+skinparam defaultMonospacedFontName "Ubuntu Mono"
+skinparam shadowing false
+skinparam roundCorner 10
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam dpi 110
+
+skinparam title {
+  FontName Ubuntu
+  FontSize 22
+  FontStyle bold
+  FontColor $OR_SLATE
+  BorderThickness 0
+}
+skinparam footer {
+  FontSize 11
+  FontColor $OR_NAVY_300
+}
+skinparam caption {
+  FontSize 12
+  FontColor $OR_BODY
+}
+
+skinparam arrow {
+  Color $OR_ORANGE
+  Thickness 1.6
+  FontColor $OR_SLATE
+  FontSize 12
+}
+
+skinparam package {
+  BackgroundColor $OR_MIST
+  BorderColor $OR_LINE
+  BorderThickness 1.2
+  FontColor $OR_SLATE
+  FontSize 14
+  FontStyle bold
+}
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor $OR_NAVY_300
+  BorderThickness 1.2
+  FontColor $OR_SLATE
+  ' navy "moment" surface: the NFS binary itself
+  BackgroundColor<<core>> $OR_NAVY
+  BorderColor<<core>> $OR_NAVY
+  FontColor<<core>> #FFFFFF
+  StereotypeFontColor<<core>> $OR_NAVY_300
+  ' orange highlight: the secret material and the important step
+  BackgroundColor<<accent>> $OR_ORANGE_TINT
+  BorderColor<<accent>> $OR_ORANGE
+  FontColor<<accent>> $OR_ORANGE_INK
+  ' services outside our code
+  BackgroundColor<<external>> $OR_NAVY_100
+  BorderColor<<external>> $OR_NAVY_300
+  FontColor<<external>> $OR_NAVY
+  ' plain card on a mist zone
+  BackgroundColor<<card>> #FFFFFF
+  BorderColor<<card>> $OR_LINE
+}
+skinparam component {
+  BackgroundColor #FFFFFF
+  BorderColor $OR_NAVY_300
+  FontColor $OR_SLATE
+  BackgroundColor<<core>> $OR_NAVY
+  FontColor<<core>> #FFFFFF
+  BorderColor<<core>> $OR_NAVY
+}
+skinparam database {
+  BackgroundColor $OR_NAVY_100
+  BorderColor $OR_NAVY_300
+  FontColor $OR_NAVY
+}
+skinparam queue {
+  BackgroundColor $OR_NAVY_100
+  BorderColor $OR_NAVY_300
+}
+skinparam cloud {
+  BackgroundColor $OR_NAVY_100
+  BorderColor $OR_NAVY_300
+  FontColor $OR_NAVY
+}
+skinparam actor {
+  BackgroundColor $OR_ORANGE
+  BorderColor $OR_ORANGE_INK
+  FontColor $OR_SLATE
+}
+skinparam person {
+  BackgroundColor $OR_ORANGE
+  BorderColor $OR_ORANGE
+  FontColor #FFFFFF
+}
+skinparam file {
+  BackgroundColor #FFFFFF
+  BorderColor $OR_NAVY_300
+}
+skinparam note {
+  BackgroundColor $OR_ORANGE_TINT
+  BorderColor $OR_ORANGE
+  FontColor $OR_SLATE
+  FontSize 12
+}
+skinparam legend {
+  BackgroundColor $OR_MIST
+  BorderColor $OR_LINE
+  FontColor $OR_BODY
+  FontSize 12
+}
+
+' sequence diagrams
+skinparam sequence {
+  ArrowColor $OR_ORANGE
+  ArrowThickness 1.4
+  LifeLineBorderColor $OR_NAVY_300
+  LifeLineBackgroundColor $OR_NAVY_100
+  ParticipantBackgroundColor $OR_NAVY
+  ParticipantBorderColor $OR_NAVY
+  ParticipantFontColor #FFFFFF
+  ParticipantFontSize 13
+  ActorBackgroundColor $OR_ORANGE_TINT
+  ActorBorderColor $OR_ORANGE
+  ActorFontColor $OR_SLATE
+  BoxBackgroundColor $OR_MIST
+  BoxBorderColor $OR_LINE
+  BoxFontColor $OR_SLATE
+  GroupBackgroundColor $OR_ORANGE_TINT
+  GroupBorderColor $OR_ORANGE
+  GroupFontColor $OR_ORANGE_INK
+  GroupHeaderFontColor $OR_ORANGE_INK
+  DividerBackgroundColor $OR_MIST
+  DividerBorderColor $OR_LINE
+  DividerFontColor $OR_SLATE
+  ReferenceBackgroundColor $OR_MIST
+  ReferenceBorderColor $OR_LINE
+}
+skinparam participant {
+  BackgroundColor<<ext>> $OR_NAVY_100
+  BorderColor<<ext>> $OR_NAVY_300
+  FontColor<<ext>> $OR_NAVY
+}
+
+' activity diagrams
+skinparam activity {
+  BackgroundColor #FFFFFF
+  BorderColor $OR_NAVY_300
+  FontColor $OR_SLATE
+  StartColor $OR_NAVY
+  EndColor $OR_NAVY
+  BarColor $OR_ORANGE
+  DiamondBackgroundColor $OR_ORANGE_TINT
+  DiamondBorderColor $OR_ORANGE
+  DiamondFontColor $OR_SLATE
+}
+skinparam partition {
+  BackgroundColor $OR_MIST
+  BorderColor $OR_LINE
+  FontColor $OR_SLATE
+}
+skinparam swimlane {
+  BorderColor $OR_LINE
+  TitleFontColor $OR_SLATE
+  TitleFontStyle bold
+}
+
+hide stereotype

@@ -18,6 +18,10 @@ in Notion, plus a web generator (`/_/`, OIDC login) and a CLI. Read `docs/archit
 - Keep the generator free of JS frameworks: server-rendered askama templates, progressive JS only.
   Font: Ubuntu (self-hosted in `assets/fonts/`).
 
+- Diagrams: PlantUML sources in `docs/diagrams/` (theme `theme-oriolrius.puml`). Change the
+  `.puml`, then run `uv run --no-project python docs/diagrams/render.py`; it writes self-contained
+  SVGs (embedded Ubuntu fonts and screenshots) to `docs/images/`. Never edit the SVGs by hand.
+
 ## Commands
 
 ```bash

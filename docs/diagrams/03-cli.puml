@@ -1,0 +1,46 @@
+@startuml 03-cli
+!include theme-oriolrius.puml
+title nfs CLI — how "nfs create" makes the two URLs
+
+|#FFFFFF|nfs create (local)|
+start
+:nfs create "<Notion URL>#<block>"\n  -X +7d  [-C alias]  [-P -]  [~--no-short]  [~--no-check];
+:load config.toml\n(~/.config/nfs, ~--config or $NFS_CONFIG)\nkey.bin + seed + API keys;
+:links::block_id_from_url()\n**#7a1c3e5b…9e2b** -> block id (32 hex);
+:links::parse_expire()\n+30m · +24h · +7d · +2w · +50y · RFC 3339 -> expire_ts;
+if (-P given?) then (yes)
+  :read the password\n("-" = from stdin);
+endif
+if (~--no-check?) then (no)
+  |#E8E8F4|Notion API|
+  :GET /v1/blocks/{id}\nblock exists and is shared\nwith the integration?;
+  :file name + block type\n(video, file, pdf…);
+  |nfs create (local)|
+else (yes, offline)
+endif
+if (password?) then (no)
+  :token::v1_encode()\nnonce(24) || secretbox(block id, key)\nsig = sha1_hex(cid||exp||cipher||b64(key)||seed)\n-> **/<sig>/<cid>/<exp>/<cipher>**; <<#FFF3EB>>
+else (yes)
+  :token::v2_encode()\nargon2id(password, salt)\nsecretbox(json {b,c,e,p}, k2)\n-> **/v2/<token>**; <<#FFF3EB>>
+endif
+:print **Secure URL** = base_url + path\nprint **Expires**;
+if (~--no-short?) then (no)
+  :kutt_expire_in(exp)\n"N minutes", or none for ≥ 10 years;
+  |#E8E8F4|Kutt API|
+  :POST /api/v2/links\n{target, customurl?, expire_in?,\n description "NFS: <file>"};
+  |nfs create (local)|
+  :print **URL for sharing your file**\nhttps://u.joor.net/<alias>;
+else (yes)
+endif
+stop
+
+legend right
+  **Other commands**
+  ""nfs decode <url> [-s] [-o dir]"" : unshorten (Kutt 302),
+      verify + decrypt, show block / expiry, download
+  ""nfs keygen key.bin"" : new 32-byte key (never rotate a key in use)
+  ""nfs serve"" : the server (same library)
+  ""nfs health"" : container healthcheck
+  Binaries: x86_64 musl (static), x86_64 + i686 glibc ≥ 2.17
+endlegend
+@enduml
