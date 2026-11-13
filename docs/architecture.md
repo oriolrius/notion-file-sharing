@@ -78,6 +78,7 @@ Every HTML page (generator, password page, error pages) is in Catalan, Spanish o
   as `next`. No JavaScript is needed.
 - A middleware (`server/ui.rs`) keeps the language in a task-local value for the page renderers.
 - `app.js` reads its texts from `data-*` attributes rendered by the server.
+- The CLI is in English only (`InputError` prints English with `Display`).
 - To add a text: add a field to `Texts` in `src/i18n.rs` and fill it in `CA`, `ES` and `EN` (the
   compiler rejects a missing one).
 

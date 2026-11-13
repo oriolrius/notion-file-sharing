@@ -1,7 +1,7 @@
 //! User interface languages: Catalan (default), Spanish and English.
 //!
 //! The web pages pick the language from the `nfs_lang` cookie (set by the selector), else from
-//! `Accept-Language`, else Catalan. The CLI prints Catalan messages (`Display`).
+//! `Accept-Language`, else Catalan. The CLI prints English messages (`Display`).
 
 use std::fmt;
 
@@ -455,10 +455,10 @@ impl InputError {
     }
 }
 
-/// The CLI prints Catalan messages.
+/// The CLI prints English messages (the web pages use `msg` with the page language).
 impl fmt::Display for InputError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.msg(Lang::Ca))
+        f.write_str(&self.msg(Lang::En))
     }
 }
 
@@ -482,6 +482,18 @@ mod tests {
         assert_eq!(Lang::from_accept_language("de, ca;q=0"), None);
         assert_eq!(Lang::from_accept_language(""), None);
         assert_eq!(Lang::from_accept_language("*"), None);
+    }
+
+    #[test]
+    fn cli_errors_are_english() {
+        assert_eq!(
+            InputError::NotHttps.to_string(),
+            "the URL must start with https://"
+        );
+        assert_eq!(
+            InputError::NotHttps.msg(Lang::Ca),
+            "la URL ha de començar per https://"
+        );
     }
 
     #[test]
