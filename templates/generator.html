@@ -1,70 +1,72 @@
 {% extends "base.html" %}
-{% block title %}Nou enllaç{% endblock %}
-{% block user %}<span class="user">{{ user }} · <a href="/_/auth/logout">surt</a></span>{% endblock %}
+{% block title %}{{ t.gen_title }}{% endblock %}
+{% block user %}<span class="user">{{ user }} · <a href="/_/auth/logout">{{ t.logout }}</a></span>{% endblock %}
 {% block content %}
-<form class="card" id="f" method="post" action="/_/links" novalidate>
+<form class="card" id="f" method="post" action="/_/links" novalidate
+      data-not-notion="{{ t.js_not_notion }}" data-no-block="{{ t.js_no_block }}"
+      data-detected="{{ t.js_detected }}" data-busy="{{ t.busy }}">
   <input type="hidden" name="csrf" value="{{ csrf }}">
   <input type="hidden" name="date_utc" id="date_utc" value="{{ form.date_utc }}">
-  <h2>Nou enllaç</h2>
-  <p class="lead">Enganxa l'enllaç al bloc de Notion (vídeo o fitxer) i tria'n la caducitat.</p>
-  {% if let Some(e) = error %}<div class="alert" role="alert">No s'ha pogut crear: {{ e }}.</div>{% endif %}
+  <h2>{{ t.gen_title }}</h2>
+  <p class="lead">{{ t.gen_lead }}</p>
+  {% if let Some(e) = error %}<div class="alert" role="alert">{{ t.gen_error }}: {{ e }}.</div>{% endif %}
 
   <div class="field">
-    <label for="url">Enllaç al bloc de Notion</label>
+    <label for="url">{{ t.url_label }}</label>
     <input id="url" name="url" type="url" required autocomplete="off" spellcheck="false" value="{{ form.url }}"
-           placeholder="https://app.notion.com/p/…#416c413b2a68…">
-    <div class="hint" id="urlHint">A Notion: menú del bloc ⋮⋮ → <i>Copia l'enllaç al bloc</i>.</div>
+           placeholder="https://www.notion.so/…#<block id>">
+    <div class="hint" id="urlHint">{{ t.url_hint_html|safe }}</div>
   </div>
 
   <div class="field">
-    <span class="label" id="ttlLabel">Caducitat</span>
+    <span class="label" id="ttlLabel">{{ t.ttl_label }}</span>
     <div class="seg" role="radiogroup" aria-labelledby="ttlLabel">
       <input type="radio" name="ttl" id="t1" value="+24h"{% if ttl_checked("+24h") %} checked{% endif %}><label for="t1">24 h</label>
-      <input type="radio" name="ttl" id="t2" value="+7d"{% if ttl_checked("+7d") %} checked{% endif %}><label for="t2">7 dies</label>
-      <input type="radio" name="ttl" id="t3" value="+30d"{% if ttl_checked("+30d") %} checked{% endif %}><label for="t3">30 dies</label>
-      <input type="radio" name="ttl" id="t4" value="+1y"{% if ttl_checked("+1y") %} checked{% endif %}><label for="t4">1 any</label>
-      <input type="radio" name="ttl" id="t5" value="+50y"{% if ttl_checked("+50y") %} checked{% endif %}><label for="t5">Sense límit</label>
-      <input type="radio" name="ttl" id="t6" value="date"{% if ttl_checked("date") %} checked{% endif %}><label for="t6">Data…</label>
+      <input type="radio" name="ttl" id="t2" value="+7d"{% if ttl_checked("+7d") %} checked{% endif %}><label for="t2">{{ t.ttl_7d }}</label>
+      <input type="radio" name="ttl" id="t3" value="+30d"{% if ttl_checked("+30d") %} checked{% endif %}><label for="t3">{{ t.ttl_30d }}</label>
+      <input type="radio" name="ttl" id="t4" value="+1y"{% if ttl_checked("+1y") %} checked{% endif %}><label for="t4">{{ t.ttl_1y }}</label>
+      <input type="radio" name="ttl" id="t5" value="+50y"{% if ttl_checked("+50y") %} checked{% endif %}><label for="t5">{{ t.ttl_none }}</label>
+      <input type="radio" name="ttl" id="t6" value="date"{% if ttl_checked("date") %} checked{% endif %}><label for="t6">{{ t.ttl_date }}</label>
     </div>
-    <input id="date" name="date" type="datetime-local" aria-label="Data de caducitat">
+    <input id="date" name="date" type="datetime-local" aria-label="{{ t.date_aria }}">
   </div>
 
   <details{% if !form.slug.is_empty() %} open{% endif %}>
-    <summary>Opcions</summary>
+    <summary>{{ t.options }}</summary>
     <div class="row">
       <div class="field">
-        <label for="slug">Àlies curt <span class="opt">· opcional</span></label>
+        <label for="slug">{{ t.slug_label }} <span class="opt">· {{ t.optional }}</span></label>
         <div class="prefix"><span>u.joor.net/</span><input id="slug" name="slug" type="text" value="{{ form.slug }}"
              placeholder="vaga-s12" pattern="[A-Za-z0-9_\-]{3,64}" autocomplete="off" spellcheck="false"></div>
       </div>
       <div class="field">
-        <label for="pw">Contrasenya <span class="opt">· opcional</span></label>
+        <label for="pw">{{ t.password }} <span class="opt">· {{ t.optional }}</span></label>
         <input id="pw" name="password" type="password" autocomplete="new-password">
       </div>
     </div>
   </details>
 
-  <button class="primary" id="go" type="submit">Genera els enllaços</button>
+  <button class="primary" id="go" type="submit">{{ t.generate }}</button>
 </form>
 
 {% if let Some(r) = result %}
 <section class="card result" aria-live="polite">
-  <div class="ok-head"><div class="ok-dot">✓</div><h3>Enllaços a punt</h3></div>
+  <div class="ok-head"><div class="ok-dot">✓</div><h3>{{ t.ready }}</h3></div>
   <div class="out">
-    <span class="label">Per compartir</span>
-    <div class="copyrow big"><code id="short">{{ r.short_url }}</code><button class="copy" data-t="short" type="button">Copia</button></div>
+    <span class="label">{{ t.to_share }}</span>
+    <div class="copyrow big"><code id="short">{{ r.short_url }}</code><button class="copy" data-t="short" data-copied="{{ t.copied }}" type="button">{{ t.copy }}</button></div>
   </div>
   <div class="out">
-    <span class="label">URL segura</span>
-    <div class="copyrow"><code id="secure" title="{{ r.secure_url }}">{{ r.secure_url }}</code><button class="copy" data-t="secure" type="button">Copia</button></div>
+    <span class="label">{{ t.secure_url }}</span>
+    <div class="copyrow"><code id="secure" title="{{ r.secure_url }}">{{ r.secure_url }}</code><button class="copy" data-t="secure" data-copied="{{ t.copied }}" type="button">{{ t.copy }}</button></div>
   </div>
   <div class="meta">
-    <span>Fitxer <b>{{ r.file_name }}</b></span>
-    {% if let Some(s) = r.size %}<span>Mida <b>{{ s }}</b></span>{% endif %}
-    {% if r.no_limit %}<span>Caduca <b>mai</b></span>{% else %}<span>Caduca <b data-ts="{{ r.expire_ts }}">{{ r.expire_utc }}</b></span>{% endif %}
-    {% if r.protected %}<span>Contrasenya <b>sí</b></span>{% endif %}
+    <span>{{ t.file }} <b>{{ r.file_name }}</b></span>
+    {% if let Some(s) = r.size %}<span>{{ t.size }} <b>{{ s }}</b></span>{% endif %}
+    {% if r.no_limit %}<span>{{ t.expires }} <b>{{ t.never }}</b></span>{% else %}<span>{{ t.expires }} <b data-ts="{{ r.expire_ts }}">{{ r.expire_utc }}</b></span>{% endif %}
+    {% if r.protected %}<span>{{ t.password }} <b>{{ t.yes }}</b></span>{% endif %}
   </div>
 </section>
 {% endif %}
 {% endblock %}
-{% block footer %}n.joor.net · els enllaços curts són de u.joor.net{% endblock %}
+{% block footer %}n.joor.net · {{ t.footer_short }}{% endblock %}

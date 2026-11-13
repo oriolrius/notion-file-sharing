@@ -4,6 +4,9 @@ use askama::Template;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 
+use super::ui::{self, Ui};
+use crate::i18n::Texts;
+
 /// Cache-busting value for `/_/assets/*`.
 pub const ASSET_V: &str = env!("CARGO_PKG_VERSION");
 
@@ -11,6 +14,8 @@ pub const ASSET_V: &str = env!("CARGO_PKG_VERSION");
 #[template(path = "message.html")]
 pub struct MessagePage<'a> {
     pub v: &'a str,
+    pub ui: Ui,
+    pub t: &'static Texts,
     pub title: &'a str,
     pub text: &'a str,
 }
@@ -19,6 +24,8 @@ pub struct MessagePage<'a> {
 #[template(path = "password.html")]
 pub struct PasswordPage<'a> {
     pub v: &'a str,
+    pub ui: Ui,
+    pub t: &'static Texts,
     pub action: &'a str,
     pub error: Option<&'a str>,
 }
@@ -46,6 +53,8 @@ pub struct LinkResult {
 #[template(path = "generator.html")]
 pub struct GeneratorPage<'a> {
     pub v: &'a str,
+    pub ui: Ui,
+    pub t: &'static Texts,
     pub user: &'a str,
     pub csrf: &'a str,
     pub form: FormValues,
@@ -74,40 +83,61 @@ pub fn render(status: StatusCode, tpl: &impl Template) -> Response {
     }
 }
 
+/// Page with a title and one sentence, in the language of the request.
 pub fn message(status: StatusCode, title: &str, text: &str) -> Response {
+    let ui = ui::current();
     render(
         status,
         &MessagePage {
             v: ASSET_V,
+            t: ui.t(),
+            ui,
             title,
             text,
         },
     )
 }
 
+/// `message` with texts picked from the request language.
+pub fn message_t(
+    status: StatusCode,
+    pick: impl Fn(&'static Texts) -> (&'static str, &'static str),
+) -> Response {
+    let (title, text) = pick(ui::lang().t());
+    message(status, title, text)
+}
+
 pub fn not_found() -> Response {
-    message(
-        StatusCode::NOT_FOUND,
-        "Enllaç no trobat",
-        "Aquest enllaç no existeix o no és vàlid. · This link does not exist.",
-    )
+    message_t(StatusCode::NOT_FOUND, |t| {
+        (t.not_found_title, t.not_found_text)
+    })
 }
 
 pub fn expired() -> Response {
-    message(
-        StatusCode::GONE,
-        "Enllaç caducat",
-        "Aquest enllaç ha caducat. · This link has expired.",
-    )
+    message_t(StatusCode::GONE, |t| (t.expired_title, t.expired_text))
+}
+
+pub fn temporary_error() -> Response {
+    message_t(StatusCode::BAD_GATEWAY, |t| (t.temp_title, t.temp_text))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::i18n::Lang;
 
-    fn sample() -> GeneratorPage<'static> {
+    fn ui(lang: Lang) -> Ui {
+        Ui {
+            lang,
+            here: "/_/".into(),
+        }
+    }
+
+    fn sample(lang: Lang) -> GeneratorPage<'static> {
         GeneratorPage {
             v: ASSET_V,
+            ui: ui(lang),
+            t: lang.t(),
             user: "oriol",
             csrf: "tok<en>",
             form: FormValues {
@@ -130,11 +160,13 @@ mod tests {
 
     #[test]
     fn generator_renders_and_escapes() {
-        let html = sample().render().unwrap();
+        let html = sample(Lang::Ca).render().unwrap();
         assert!(html.contains("https://u.joor.net/vaga-s12"));
         assert!(html.contains("value=\"+50y\" checked"));
         assert!(html.contains("tok&#60;en&#62;") || html.contains("tok&lt;en&gt;"));
         assert!(!html.contains("<rec>"));
+        assert!(html.contains("<html lang=\"ca\">"));
+        assert!(html.contains("Genera els enllaços"));
         if let Ok(path) = std::env::var("NFS_DUMP_HTML") {
             let html = html.replace(
                 "/_/assets/",
@@ -145,15 +177,50 @@ mod tests {
     }
 
     #[test]
+    fn generator_in_each_language() {
+        for (lang, button, current) in [
+            (
+                Lang::Ca,
+                "Genera els enllaços",
+                "href=\"/_/lang/ca?next=%2F%5F%2F\" lang=\"ca\" hreflang=\"ca\" title=\"Català\" aria-current=\"true\"",
+            ),
+            (
+                Lang::Es,
+                "Genera los enlaces",
+                "href=\"/_/lang/es?next=%2F%5F%2F\" lang=\"es\" hreflang=\"es\" title=\"Español\" aria-current=\"true\"",
+            ),
+            (
+                Lang::En,
+                "Create the links",
+                "href=\"/_/lang/en?next=%2F%5F%2F\" lang=\"en\" hreflang=\"en\" title=\"English\" aria-current=\"true\"",
+            ),
+        ] {
+            let html = sample(lang).render().unwrap();
+            assert!(html.contains(&format!("<html lang=\"{}\">", lang.code())));
+            assert!(html.contains(button), "{lang:?}");
+            assert!(html.contains(current), "{lang:?}");
+            assert_eq!(html.matches("aria-current=\"true\"").count(), 1);
+            // Texts for app.js.
+            assert!(html.contains(&format!("data-copied=\"{}\"", lang.t().copied)));
+            if let Ok(dir) = std::env::var("NFS_DUMP_DIR") {
+                std::fs::write(format!("{dir}/{}.html", lang.code()), &html).unwrap();
+            }
+        }
+    }
+
+    #[test]
     fn password_page_renders() {
         let html = PasswordPage {
             v: ASSET_V,
+            ui: ui(Lang::Es),
+            t: Lang::Es.t(),
             action: "/v2/abc",
-            error: Some("Contrasenya incorrecta."),
+            error: Some(Lang::Es.t().pw_wrong),
         }
         .render()
         .unwrap();
         assert!(html.contains("action=\"/v2/abc\""));
-        assert!(html.contains("Contrasenya incorrecta."));
+        assert!(html.contains("Contraseña incorrecta."));
+        assert!(html.contains("Enlace protegido"));
     }
 }

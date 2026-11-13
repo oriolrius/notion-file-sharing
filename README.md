@@ -52,6 +52,8 @@ theme): [docs/diagrams/](docs/diagrams/).
 
 Open `https://<server>/_/`, log in, paste the Notion link to the block (block menu ⋮⋮ →
 *Copy link to block*), choose the expiry and, optionally, a short alias and a password.
+The pages are in Catalan, Spanish or English: the browser language by default, and the CA · ES · EN
+selector in the header.
 
 ### CLI
 

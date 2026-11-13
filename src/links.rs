@@ -3,6 +3,7 @@
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
+use crate::i18n::InputError;
 use crate::token::{self, Keys, PasswordHash, V2Payload};
 
 /// Seconds in the units the old CLI accepted (`y` = 365 days, as in the Lua code).
@@ -15,15 +16,15 @@ const YEAR: i64 = 365 * DAY;
 pub const NO_LIMIT_THRESHOLD: i64 = 10 * YEAR;
 
 /// Parse `+30m`, `+24h`, `+7d`, `+2w`, `+50y` or an RFC 3339 / ISO date (`2026-12-31T23:59:59Z`).
-pub fn parse_expire(spec: &str, now: i64) -> Result<i64, String> {
+pub fn parse_expire(spec: &str, now: i64) -> Result<i64, InputError> {
     let spec = spec.trim();
     if let Some(rel) = spec.strip_prefix('+') {
         let (num, unit) = rel.split_at(rel.len().saturating_sub(1));
         let n: i64 = num
             .parse()
-            .map_err(|_| format!("durada no vàlida: {spec}"))?;
+            .map_err(|_| InputError::InvalidDuration(spec.into()))?;
         if n <= 0 {
-            return Err(format!("la durada ha de ser positiva: {spec}"));
+            return Err(InputError::NonPositiveDuration(spec.into()));
         }
         let mult = match unit {
             "m" => MINUTE,
@@ -31,24 +32,18 @@ pub fn parse_expire(spec: &str, now: i64) -> Result<i64, String> {
             "d" => DAY,
             "w" => 7 * DAY,
             "y" => YEAR,
-            _ => {
-                return Err(format!(
-                    "unitat desconeguda a {spec} (fes servir m, h, d, w o y)"
-                ));
-            }
+            _ => return Err(InputError::UnknownUnit(spec.into())),
         };
         return n
             .checked_mul(mult)
             .and_then(|d| d.checked_add(now))
-            .ok_or_else(|| "durada massa llarga".into());
+            .ok_or(InputError::DurationTooLong);
     }
     let ts = OffsetDateTime::parse(spec, &Rfc3339)
-        .map_err(|_| {
-            format!("data no vàlida: {spec} (fes servir +24h, +7d, +1y o 2026-12-31T23:59:59Z)")
-        })?
+        .map_err(|_| InputError::InvalidDate(spec.into()))?
         .unix_timestamp();
     if ts <= now {
-        return Err("la data de caducitat ja ha passat".into());
+        return Err(InputError::DatePassed);
     }
     Ok(ts)
 }
@@ -65,24 +60,21 @@ pub fn kutt_expire_in(expire: i64, now: i64) -> Option<String> {
 
 /// Extract the block id from a Notion "copy link to block" URL (`…#<block_id>`).
 /// Accepts 32 hex chars or a dashed UUID; returns it as given (lowercase).
-pub fn block_id_from_url(input: &str) -> Result<String, String> {
-    let url = url::Url::parse(input.trim()).map_err(|_| "no és una URL vàlida".to_string())?;
+pub fn block_id_from_url(input: &str) -> Result<String, InputError> {
+    let url = url::Url::parse(input.trim()).map_err(|_| InputError::NotAUrl)?;
     if url.scheme() != "https" {
-        return Err("la URL ha de començar per https://".into());
+        return Err(InputError::NotHttps);
     }
     let host = url.host_str().unwrap_or_default();
     let notion = ["notion.so", "notion.com", "notion.site"]
         .iter()
         .any(|d| host == *d || host.ends_with(&format!(".{d}")));
     if !notion {
-        return Err("no és una URL de Notion (notion.so / notion.com)".into());
+        return Err(InputError::NotNotion);
     }
     let fragment = url.fragment().unwrap_or_default();
     if fragment.is_empty() {
-        return Err(
-            "la URL no té l'identificador del bloc (#…): copia l'enllaç al bloc, no a la pàgina"
-                .into(),
-        );
+        return Err(InputError::NoBlockId);
     }
     let id = fragment.to_ascii_lowercase();
     let hex: String = id.chars().filter(|c| *c != '-').collect();
@@ -90,9 +82,7 @@ pub fn block_id_from_url(input: &str) -> Result<String, String> {
         && hex.chars().all(|c| c.is_ascii_hexdigit())
         && (id.len() == 32 || id.len() == 36);
     if !ok {
-        return Err(format!(
-            "«#{fragment}» no és un identificador de bloc de Notion"
-        ));
+        return Err(InputError::BadBlockId(fragment.into()));
     }
     Ok(id)
 }
@@ -128,16 +118,12 @@ pub fn secure_path(
 }
 
 /// Slug rules for the short URL (Kutt custom URL).
-pub fn validate_slug(slug: &str) -> Result<(), String> {
+pub fn validate_slug(slug: &str) -> Result<(), InputError> {
     let ok = (3..=64).contains(&slug.len())
         && slug
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_');
-    if ok {
-        Ok(())
-    } else {
-        Err("l'àlies ha de tenir 3–64 caràcters: lletres, xifres, - o _".into())
-    }
+    if ok { Ok(()) } else { Err(InputError::BadSlug) }
 }
 
 pub fn format_ts(ts: i64) -> String {

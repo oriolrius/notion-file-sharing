@@ -3,10 +3,14 @@
   document.documentElement.classList.add("js");
   const $ = (id) => document.getElementById(id);
   const BLOCK_RE = /#([0-9a-f]{32}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
-  const HELP = "A Notion: menú del bloc ⋮⋮ → <i>Copia l'enllaç al bloc</i>.";
+  // Texts come from the page (server-rendered in the selected language).
+  const form = $("f");
+  const T = form ? form.dataset : {};
+  const LOCALE = document.documentElement.lang || "ca";
 
   const url = $("url");
   const hint = $("urlHint");
+  const HELP = hint ? hint.innerHTML : "";
   const checkUrl = () => {
     if (!url) return true;
     const v = url.value.trim();
@@ -15,13 +19,12 @@
     const notion = /^https:\/\/([a-z0-9-]+\.)*notion\.(so|com|site)\//i.test(v);
     if (!notion || !m) {
       url.classList.add("invalid"); hint.className = "hint err";
-      hint.textContent = !notion ? "Ha de ser un enllaç https de notion.so o notion.com."
-        : "Falta l'identificador del bloc (#…). Copia l'enllaç al bloc, no a la pàgina.";
+      hint.textContent = !notion ? T.notNotion : T.noBlock;
       return false;
     }
     url.classList.remove("invalid"); hint.className = "hint";
     const id = m[1].replace(/-/g, "").toLowerCase();
-    hint.textContent = "Bloc detectat ";
+    hint.textContent = `${T.detected} `;
     const chip = document.createElement("span");
     chip.className = "chip"; chip.textContent = `${id.slice(0, 8)}…${id.slice(-4)}`;
     hint.append(chip);
@@ -38,7 +41,6 @@
   document.querySelectorAll("input[name=ttl]").forEach((r) => r.addEventListener("change", syncDate));
   syncDate();
 
-  const form = $("f");
   if (form) form.addEventListener("submit", (e) => {
     if (!checkUrl()) { e.preventDefault(); url.focus(); return; }
     const sel = document.querySelector("input[name=ttl]:checked");
@@ -46,7 +48,7 @@
       if (!date.value) { e.preventDefault(); date.focus(); return; }
       $("date_utc").value = new Date(date.value).toISOString().replace(/\.\d{3}Z$/, "Z");
     }
-    const b = $("go"); b.disabled = true; b.textContent = "Generant…";
+    const b = $("go"); b.disabled = true; b.textContent = T.busy;
   });
 
   // Copy buttons.
@@ -57,13 +59,14 @@
       const r = document.createRange(); r.selectNodeContents(el);
       const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand("copy"); s.removeAllRanges();
     }
-    btn.textContent = "Copiat"; btn.classList.add("done");
-    setTimeout(() => { btn.textContent = "Copia"; btn.classList.remove("done"); }, 1500);
+    const label = btn.dataset.label || (btn.dataset.label = btn.textContent);
+    btn.textContent = btn.dataset.copied; btn.classList.add("done");
+    setTimeout(() => { btn.textContent = label; btn.classList.remove("done"); }, 1500);
   }));
 
   // Show dates in the viewer's local time.
   document.querySelectorAll("[data-ts]").forEach((el) => {
     const d = new Date(Number(el.dataset.ts) * 1000);
-    el.textContent = d.toLocaleString("ca", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    el.textContent = d.toLocaleString(LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
   });
 })();

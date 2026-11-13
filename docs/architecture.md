@@ -14,6 +14,8 @@
 | `server/web.rs` | Generator `/_/` and embedded assets |
 | `server/auth.rs` | OIDC login (authorization code + PKCE, confidential client) |
 | `server/metrics.rs` | Prometheus counters on the admin listener |
+| `i18n.rs` | Interface texts in Catalan, Spanish and English; input errors (`InputError`) |
+| `server/ui.rs` | Language of each request (cookie → `Accept-Language` → Catalan) and the selector route |
 | `templates/`, `assets/` | askama templates, CSS/JS, Ubuntu fonts (all embedded in the binary) |
 
 Stack: tokio, axum 0.8, reqwest 0.13 (rustls + ring, system CA roots), moka, askama, RustCrypto.
@@ -65,6 +67,19 @@ Responses keep the original behaviour: `application/octet-stream` + `Content-Dis
   integration) and reads the file size with a 1-byte range request.
 - New links are v1 without password and v2 with password. The short URL expires with the link
   (no expiry for links of 10 years or more).
+
+## Languages
+
+Every HTML page (generator, password page, error pages) is in Catalan, Spanish or English.
+
+- Order: cookie `nfs_lang` → `Accept-Language` → Catalan.
+- The selector (CA · ES · EN in the header) links to `GET /_/lang/{code}?next=<page>`, which sets
+  `nfs_lang` (1 year, `HttpOnly`, `SameSite=Lax`) and redirects back. Only local paths are accepted
+  as `next`. No JavaScript is needed.
+- A middleware (`server/ui.rs`) keeps the language in a task-local value for the page renderers.
+- `app.js` reads its texts from `data-*` attributes rendered by the server.
+- To add a text: add a field to `Texts` in `src/i18n.rs` and fill it in `CA`, `ES` and `EN` (the
+  compiler rejects a missing one).
 
 ## Security notes
 

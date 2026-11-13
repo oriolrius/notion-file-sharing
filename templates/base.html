@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ca">
+<html lang="{{ ui.lang.code() }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,6 +14,11 @@
   <img class="logo" src="/_/assets/favicon.svg?v={{ v }}" alt="" width="30" height="30">
   <h1>Notion File Sharing</h1>
   {% block user %}{% endblock %}
+  <nav class="langs" aria-label="{{ t.language }}">
+    {%- for l in ui.links() %}
+    <a href="{{ l.href }}" lang="{{ l.code }}" hreflang="{{ l.code }}" title="{{ l.name }}"{% if l.current %} aria-current="true"{% endif %}>{{ l.code|upper }}</a>
+    {%- endfor %}
+  </nav>
 </header>
 <main>
 {% block content %}{% endblock %}

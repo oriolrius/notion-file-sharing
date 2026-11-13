@@ -4,6 +4,7 @@ mod auth;
 mod download;
 mod metrics;
 mod pages;
+mod ui;
 mod web;
 
 use std::net::SocketAddr;
@@ -150,9 +151,11 @@ pub fn router(state: AppState) -> Router {
         .route("/_/auth/login", get(auth::login))
         .route("/_/auth/callback", get(auth::callback))
         .route("/_/auth/logout", get(auth::logout))
+        .route("/_/lang/{code}", get(ui::set))
         .route("/v2/{token}", get(download::v2_get).post(download::v2_post))
         .fallback(download::v1)
         .layer(axum::middleware::map_response(security_headers))
+        .layer(axum::middleware::from_fn(ui::layer))
         .with_state(state)
 }
 

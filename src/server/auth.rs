@@ -121,8 +121,8 @@ fn cookie<'a>(
         .build()
 }
 
-fn auth_error(text: &str) -> Response {
-    pages::message(StatusCode::BAD_GATEWAY, "Error d'inici de sessió", text)
+fn auth_error(pick: fn(&'static crate::i18n::Texts) -> &'static str) -> Response {
+    pages::message_t(StatusCode::BAD_GATEWAY, |t| (t.login_title, pick(t)))
 }
 
 /// `GET /_/auth/login`
@@ -134,7 +134,7 @@ pub async fn login(State(st): State<AppState>, jar: PrivateCookieJar) -> Respons
         Ok(m) => m,
         Err(e) => {
             tracing::error!(error = %e, "OIDC discovery failed");
-            return auth_error("No s'ha pogut contactar el servidor d'identitat.");
+            return auth_error(|t| t.login_unreachable);
         }
     };
     let pending = Pending {
@@ -157,7 +157,7 @@ pub async fn login(State(st): State<AppState>, jar: PrivateCookieJar) -> Respons
             ("code_challenge_method", "S256"),
         ],
     ) else {
-        return auth_error("Configuració OIDC no vàlida.");
+        return auth_error(|t| t.login_bad_config);
     };
     let value = serde_json::to_string(&pending).expect("serializes");
     let jar = jar.add(cookie(&st, PENDING_COOKIE, value, "/_/auth/", 600));
@@ -201,11 +201,7 @@ pub async fn callback(
     let jar = jar.remove(Cookie::build(PENDING_COOKIE).path("/_/auth/"));
     if let Some(err) = q.error {
         tracing::warn!(%err, "OIDC provider returned an error");
-        return (
-            jar,
-            auth_error("El servidor d'identitat ha rebutjat l'inici de sessió."),
-        )
-            .into_response();
+        return (jar, auth_error(|t| t.login_rejected)).into_response();
     }
     let (Some(pending), Some(code), Some(state)) = (pending, q.code, q.state) else {
         return (jar, Redirect::to("/_/auth/login")).into_response();
@@ -217,21 +213,15 @@ pub async fn callback(
         Ok(c) => c,
         Err(e) => {
             tracing::error!(error = %e, "OIDC code exchange failed");
-            return (
-                jar,
-                auth_error("No s'ha pogut completar l'inici de sessió."),
-            )
-                .into_response();
+            return (jar, auth_error(|t| t.login_failed)).into_response();
         }
     };
     let user = claims.preferred_username.unwrap_or(claims.sub);
     if !oidc.cfg.allowed_users.is_empty() && !oidc.cfg.allowed_users.iter().any(|u| u == &user) {
         tracing::warn!(%user, "user not allowed to create links");
-        let page = pages::message(
-            StatusCode::FORBIDDEN,
-            "Sense permís",
-            "El teu usuari no pot crear enllaços.",
-        );
+        let page = pages::message_t(StatusCode::FORBIDDEN, |t| {
+            (t.forbidden_title, t.forbidden_text)
+        });
         return (jar, page).into_response();
     }
     inc(&st.metrics.logins);

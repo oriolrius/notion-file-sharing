@@ -11,6 +11,8 @@ use super::AppState;
 use super::auth::{self, Session};
 use super::metrics::inc;
 use super::pages::{self, ASSET_V, FormValues, GeneratorPage, LinkResult};
+use super::ui;
+use crate::i18n::Lang;
 use crate::links;
 use crate::notion::{NotionError, Source};
 use crate::token;
@@ -20,11 +22,9 @@ const TTL_CHOICES: &[&str] = &["+24h", "+7d", "+30d", "+1y", "+50y", "date"];
 #[allow(clippy::result_large_err)] // the error is the response to send (axum pattern)
 fn require_session(st: &AppState, jar: &PrivateCookieJar) -> Result<Session, Response> {
     if st.oidc.is_none() {
-        return Err(pages::message(
-            StatusCode::NOT_FOUND,
-            "Generador desactivat",
-            "Aquest servidor no té el generador actiu.",
-        ));
+        return Err(pages::message_t(StatusCode::NOT_FOUND, |t| {
+            (t.gen_off_title, t.gen_off_text)
+        }));
     }
     auth::session(jar).ok_or_else(|| Redirect::to("/_/auth/login").into_response())
 }
@@ -35,8 +35,11 @@ pub async fn form(State(st): State<AppState>, jar: PrivateCookieJar) -> Response
         Ok(s) => s,
         Err(r) => return r,
     };
+    let ui = ui::current();
     let page = GeneratorPage {
         v: ASSET_V,
+        t: ui.t(),
+        ui,
         user: &session.user,
         csrf: &session.csrf,
         form: FormValues::default(),
@@ -76,11 +79,7 @@ pub async fn create(
         Err(r) => return r,
     };
     if !bool::from(f.csrf.as_bytes().ct_eq(session.csrf.as_bytes())) {
-        return pages::message(
-            StatusCode::FORBIDDEN,
-            "Sessió caducada",
-            "Torna a carregar la pàgina i prova-ho de nou.",
-        );
+        return pages::message_t(StatusCode::FORBIDDEN, |t| (t.csrf_title, t.csrf_text));
     }
     let date_utc = if f.date_utc.is_empty() && !f.date.is_empty() {
         format!("{}:00Z", f.date)
@@ -99,8 +98,11 @@ pub async fn create(
         } else {
             StatusCode::OK
         };
+        let ui = ui::current();
         let p = GeneratorPage {
             v: ASSET_V,
+            t: ui.t(),
+            ui,
             user: &session.user,
             csrf: &session.csrf,
             form,
@@ -109,7 +111,7 @@ pub async fn create(
         };
         pages::render(status, &p)
     };
-    match build(&st, &session.user, &values, &f.password).await {
+    match build(&st, ui::lang(), &session.user, &values, &f.password).await {
         Ok(result) => page(
             None,
             Some(result),
@@ -124,35 +126,37 @@ pub async fn create(
 
 async fn build(
     st: &AppState,
+    lang: Lang,
     user: &str,
     f: &FormValues,
     password: &str,
 ) -> Result<LinkResult, String> {
-    let block_id = links::block_id_from_url(&f.url)?;
+    let t = lang.t();
+    let block_id = links::block_id_from_url(&f.url).map_err(|e| e.msg(lang))?;
     let now = token::now();
     if !TTL_CHOICES.contains(&f.ttl.as_str()) {
-        return Err("tria una caducitat".into());
+        return Err(t.err_ttl.into());
     }
     let spec = if f.ttl == "date" {
         if f.date_utc.is_empty() {
-            return Err("tria la data de caducitat".into());
+            return Err(t.err_date.into());
         }
         f.date_utc.as_str()
     } else {
         f.ttl.as_str()
     };
-    let expire = links::parse_expire(spec, now)?;
+    let expire = links::parse_expire(spec, now).map_err(|e| e.msg(lang))?;
     let slug = (!f.slug.is_empty()).then_some(f.slug.as_str());
     if let Some(s) = slug {
-        links::validate_slug(s)?;
+        links::validate_slug(s).map_err(|e| e.msg(lang))?;
     }
 
     // Check now that the block exists and the Notion integration can read it.
     let (resolved, _) = st.notion.resolve(&block_id).await.map_err(|e| match e {
-        NotionError::NotFound => "Notion no troba el bloc: comprova l'enllaç i que la pàgina estigui compartida amb la integració".to_string(),
-        NotionError::NotAFile(t) => format!("aquest bloc ({t}) no conté cap fitxer"),
-        NotionError::RateLimited(s) => format!("Notion està limitant peticions; torna-ho a provar d'aquí a {s} s"),
-        NotionError::Upstream(_) => "error consultant Notion; torna-ho a provar".to_string(),
+        NotionError::NotFound => t.err_notion_not_found.to_string(),
+        NotionError::NotAFile(kind) => lang.not_a_file(&kind),
+        NotionError::RateLimited(s) => lang.notion_rate_limited(s),
+        NotionError::Upstream(_) => t.err_notion.to_string(),
     })?;
     let size = match &resolved.source {
         Source::Hosted { url } => file_size(st, url).await,
@@ -174,7 +178,7 @@ async fn build(
         .kutt
         .create(&secure_url, slug, expire_in.as_deref(), &description)
         .await
-        .map_err(|e| format!("l'escurçador (Kutt) ha fallat: {e}"))?;
+        .map_err(|e| lang.kutt_failed(&e.to_string()))?;
 
     inc(&st.metrics.links_created);
     tracing::info!(%user, block = &block_id[..8], expire, protected, short = %short.link, "link created");

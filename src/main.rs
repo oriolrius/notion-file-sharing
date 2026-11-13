@@ -3,6 +3,7 @@
 //! One binary: `serve` (secure links + web generator), `create`, `decode`, `keygen`, `health`.
 
 mod config;
+mod i18n;
 mod kutt;
 mod links;
 mod notion;

@@ -18,6 +18,7 @@ use sha2::{Digest, Sha256};
 use super::AppState;
 use super::metrics::inc;
 use super::pages::{self, ASSET_V, PasswordPage};
+use super::ui;
 use crate::notion::{NotionError, Source};
 use crate::token::{self, LinkError, V1Link};
 
@@ -86,10 +87,13 @@ pub async fn v2_get(
     };
     if payload.p.is_some() && !is_unlocked(&jar, &tok) {
         let action = format!("/v2/{tok}");
+        let ui = ui::current();
         return pages::render(
             StatusCode::OK,
             &PasswordPage {
                 v: ASSET_V,
+                t: ui.t(),
+                ui,
                 action: &action,
                 error: None,
             },
@@ -123,10 +127,13 @@ pub async fn v2_post(
     };
     let ip = client_ip(&headers, peer);
     if !st.limiter.allow(ip) {
+        let ui = ui::current();
         let page = PasswordPage {
             v: ASSET_V,
+            t: ui.t(),
+            error: Some(ui.t().pw_too_many),
+            ui,
             action: &action,
-            error: Some("Massa intents. Torna-ho a provar d'aquí a uns minuts."),
         };
         return pages::render(StatusCode::TOO_MANY_REQUESTS, &page);
     }
@@ -137,10 +144,13 @@ pub async fn v2_post(
     if !ok {
         inc(&st.metrics.password_failures);
         tracing::info!(link = &tok[..8.min(tok.len())], %ip, "wrong password");
+        let ui = ui::current();
         let page = PasswordPage {
             v: ASSET_V,
+            t: ui.t(),
+            error: Some(ui.t().pw_wrong),
+            ui,
             action: &action,
-            error: Some("Contrasenya incorrecta."),
         };
         return pages::render(StatusCode::UNAUTHORIZED, &page);
     }
@@ -207,11 +217,9 @@ async fn serve_block(st: &AppState, block_id: &str, headers: &HeaderMap) -> Resp
             }
             Err(NotionError::RateLimited(secs)) => {
                 inc(&st.metrics.notion_rate_limited);
-                let mut r = pages::message(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "Torna-ho a provar",
-                    "Servei ocupat. Torna-ho a provar en uns segons.",
-                );
+                let mut r = pages::message_t(StatusCode::SERVICE_UNAVAILABLE, |t| {
+                    (t.busy_title, t.busy_text)
+                });
                 r.headers_mut()
                     .insert(header::RETRY_AFTER, HeaderValue::from(secs));
                 return r;
@@ -219,11 +227,7 @@ async fn serve_block(st: &AppState, block_id: &str, headers: &HeaderMap) -> Resp
             Err(e) => {
                 inc(&st.metrics.upstream_errors);
                 tracing::error!(error = %e, "Notion resolution failed");
-                return pages::message(
-                    StatusCode::BAD_GATEWAY,
-                    "Error temporal",
-                    "No s'ha pogut obtenir el fitxer. Torna-ho a provar.",
-                );
+                return pages::temporary_error();
             }
         };
         let url = match &resolved.source {
@@ -244,11 +248,7 @@ async fn serve_block(st: &AppState, block_id: &str, headers: &HeaderMap) -> Resp
             Err(e) => {
                 inc(&st.metrics.upstream_errors);
                 tracing::error!(error = %e.without_url(), "file request failed");
-                return pages::message(
-                    StatusCode::BAD_GATEWAY,
-                    "Error temporal",
-                    "No s'ha pogut obtenir el fitxer. Torna-ho a provar.",
-                );
+                return pages::temporary_error();
             }
         };
         let status = resp.status().as_u16();
@@ -271,11 +271,7 @@ async fn serve_block(st: &AppState, block_id: &str, headers: &HeaderMap) -> Resp
             other => {
                 inc(&st.metrics.upstream_errors);
                 tracing::error!(status = other, "unexpected status from file host");
-                return pages::message(
-                    StatusCode::BAD_GATEWAY,
-                    "Error temporal",
-                    "No s'ha pogut obtenir el fitxer. Torna-ho a provar.",
-                );
+                return pages::temporary_error();
             }
         };
 
@@ -323,11 +319,7 @@ async fn serve_block(st: &AppState, block_id: &str, headers: &HeaderMap) -> Resp
             .unwrap_or_else(|_| StatusCode::INTERNAL_SERVER_ERROR.into_response());
     }
     inc(&st.metrics.upstream_errors);
-    pages::message(
-        StatusCode::BAD_GATEWAY,
-        "Error temporal",
-        "No s'ha pogut obtenir el fitxer. Torna-ho a provar.",
-    )
+    pages::temporary_error()
 }
 
 /// `attachment; filename="ascii"; filename*=UTF-8''percent-encoded`
