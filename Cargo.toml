@@ -1,6 +1,6 @@
 [package]
 name = "nfs"
-version = "2.2.0"
+version = "2.2.1"
 edition = "2024"
 rust-version = "1.88"
 description = "Notion File Sharing: secure, expiring links to files stored in Notion"

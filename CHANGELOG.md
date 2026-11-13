@@ -1,3 +1,9 @@
+## v2.2.1 (2026-11-13)
+
+### Fix
+
+- **cli**: all CLI messages in English
+
 ## v2.2.0 (2026-11-13)
 
 ### Feat
