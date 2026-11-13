@@ -1,3 +1,9 @@
+## v2.2.0 (2026-11-13)
+
+### Feat
+
+- **ui**: language selector (Catalan, Spanish, English)
+
 ## v2.1.0 (2026-11-12)
 
 ### Feat
